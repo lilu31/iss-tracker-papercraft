@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Absichtlich nur die Tailwind-Einstiegspunkte: das gesamte Aussehen liegt in
+ * Tailwind-Klassen und in tailwind.config.ts. Es gibt bewusst keinen Dark Mode
+ * und keine eigene Farbpalette ausserhalb der Config.
+ */
