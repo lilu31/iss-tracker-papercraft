@@ -5,7 +5,15 @@ eine selbstgebaute Papier-Erde. Kein dunkles Dashboard, keine Fachbegriffe –
 sondern ein Diorama aus Bastelpapier, auf dem ein kleiner Satellit seine Runden
 zieht.
 
-**Läuft live unter:** _folgt nach dem Vercel-Deployment_
+## Deployment
+
+```bash
+npx vercel --prod
+```
+
+Vercel erkennt Next.js von selbst, es braucht keine Konfigurationsdatei und
+keine Umgebungsvariablen. Die Abfrage der ISS-Daten läuft im Browser der
+Besucher, nicht auf dem Server.
 
 ---
 
