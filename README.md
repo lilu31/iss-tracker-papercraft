@@ -5,15 +5,7 @@ eine selbstgebaute Papier-Erde. Kein dunkles Dashboard, keine Fachbegriffe –
 sondern ein Diorama aus Bastelpapier, auf dem ein kleiner Satellit seine Runden
 zieht.
 
-## Deployment
-
-```bash
-npx vercel --prod
-```
-
-Vercel erkennt Next.js von selbst, es braucht keine Konfigurationsdatei und
-keine Umgebungsvariablen. Die Abfrage der ISS-Daten läuft im Browser der
-Besucher, nicht auf dem Server.
+![Vorschau: Weltkarte im Papierlook mit geöffnetem Infofenster zur ISS](docs/vorschau.png)
 
 ---
 
@@ -21,9 +13,9 @@ Besucher, nicht auf dem Server.
 
 | Nr. | Anforderung | Umsetzung |
 | --- | --- | --- |
-| **F1** | Weltkarte mit Erdteilen und ISS-Position | Leaflet-Karte im Papercraft-Look, 176 Länderumrisse |
+| **F1** | Weltkarte mit Erdteilen und ISS-Position | Leaflet-Karte mit 176 Länderumrissen im Papierlook |
 | **F2** | Aktuelle Werte verständlich anzeigen | Breitengrad, Längengrad, Höhe und Geschwindigkeit als große Karten |
-| **F3** | Automatische Aktualisierung, sichtbare Bewegung | Alle 5 Sekunden neue Daten + „Mitfliegen"-Modus |
+| **F3** | Automatische Aktualisierung, sichtbare Bewegung | Alle 5 Sekunden neue Daten, dazu ein „Mitfliegen"-Modus |
 | **F4** | Fehlerfreundlich statt leerer Seite | Ladezustand, Fehlermeldung in Kindersprache, „Nochmal versuchen" |
 
 Dazu die drei Kernlogiken aus dem Konzept:
@@ -34,6 +26,15 @@ Dazu die drei Kernlogiken aus dem Konzept:
 3. **Erststart** – beim Laden passt sich die Karte an das Band an, in dem die
    ISS überhaupt fliegen kann (etwa 52° Nord bis 52° Süd). So ist die Station
    immer im Bild.
+
+### Mitfliegen
+
+Auf der ganzen Weltkarte legt die ISS in zehn Sekunden nur rund zwei Pixel
+zurück – die Bewegung ist dann schlicht nicht zu erkennen. Der Schalter
+„Mitfliegen" zoomt deshalb heran und lässt die Karte mitwandern, sodass
+stattdessen die Erdoberfläche vorbeizieht.
+
+![Mitfliegen-Modus: herangezoomt, ISS mittig, Südamerika zieht vorbei](docs/mitfliegen.png)
 
 ---
 
@@ -65,7 +66,11 @@ Dann <http://localhost:3000> öffnen.
 - **framer-motion** für das Infofenster, **lucide-react** für Symbole
 - **native `fetch`** + `useEffect` – keine State-Bibliothek nötig
 
-### Warum Leaflet und keine Kacheln?
+---
+
+## Warum es so gebaut ist
+
+### Keine Kacheln, keine fremden Server
 
 Die Karte lädt **keinen Tile-Server**. Statt Luftbild-Kacheln werden die
 Ländergrenzen aus einer mitgelieferten Natural-Earth-Datei gezeichnet und in
@@ -88,12 +93,21 @@ TopoJSON-Datei von `world-atlas`. Zwei Dinge passieren dabei:
 Die Datei liegt mit 159 KB im Repository, damit der Build nicht von
 `world-atlas` abhängt.
 
-### Warum die ISS beim Mitfliegen herangezoomt wird
+### Warum die App bei Fehlern langsamer wird
 
-Auf der ganzen Weltkarte legt die ISS in zehn Sekunden nur rund zwei Pixel
-zurück – die Bewegung ist dann schlicht nicht zu erkennen. Der Schalter
-„Mitfliegen" zoomt deshalb heran und lässt die Karte mitwandern, sodass
-stattdessen die Erdoberfläche vorbeizieht.
+Zwanzig Kinder hinter einer IP fragen im Fünf-Sekunden-Takt – dann antwortet
+die API mit `429 Too Many Requests`. Stur weiterzufragen hält die Sperre am
+Leben, statt sie abklingen zu lassen. Die App wartet deshalb so lange, wie der
+Server per `Retry-After` bittet, sonst 30 Sekunden. Nach der ersten
+erfolgreichen Antwort läuft sie wieder im normalen Takt.
+
+### Warum die ISS nicht doppelt geladen wird
+
+Leaflet greift beim Import auf `window` zu und verträgt kein Server-Rendering.
+Die Karte wird deshalb mit `dynamic(..., { ssr: false })` erst im Browser
+geladen. Der Aufbau des ISS-Symbols liegt getrennt in `issMarker.ts`, damit die
+Komponente für das Infofenster frei von Leaflet bleibt und auf dem Server
+gerendert werden kann.
 
 ---
 
@@ -109,9 +123,34 @@ src/
 ├── hooks/                useIssPosition – Abfrage im 5-Sekunden-Takt
 ├── lib/                  API-Zugriff, Formatierung, Hilfsfunktionen
 └── types/                Datenmodelle
+scripts/
+└── build-world-geo.mjs   Erzeugt die Länderdaten
 ```
+
+---
+
+## Deployment
+
+```bash
+npx vercel --prod
+```
+
+Vercel erkennt Next.js von selbst, es braucht keine Konfigurationsdatei und
+keine Umgebungsvariablen. Die Abfrage der ISS-Daten läuft im Browser der
+Besucher, nicht auf dem Server.
+
+---
 
 ## Datenquelle
 
 [api.wheretheiss.at](https://api.wheretheiss.at/v1/satellites/25544) –
 kostenlos, ohne Schlüssel, ohne Anmeldung.
+
+Die API erlaubt etwa eine Abfrage pro Sekunde und IP. Für einen einzelnen
+Besucher mit einer Abfrage alle fünf Sekunden reicht das bequem; mehrere
+gleichzeitig geöffnete Tabs oder eine ganze Schulklasse hinter einer IP
+erreichen das Limit. Für diesen Fall greift die Pause oben.
+
+Die Antwort der API wird vor der Verwendung geprüft (`isIssApiResponse`) –
+sind Felder nicht wie erwartet, zeigt die App die Fehlermeldung statt mit
+undefinierten Werten weiterzurechnen.
