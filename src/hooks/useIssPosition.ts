@@ -38,6 +38,9 @@ export function useIssPosition(): UseIssPositionResult {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
+    /** Wartezeit bis zur naechsten Abfrage - bei Drosselung laenger. */
+    let delay = POLL_INTERVAL_MS;
+
     const load = async () => {
       try {
         const next = await fetchIssPosition(controller.signal);
@@ -46,18 +49,24 @@ export function useIssPosition(): UseIssPositionResult {
         setPosition(next);
         setStatus("live");
         setMessage(null);
+        delay = POLL_INTERVAL_MS;
       } catch (error) {
         // Abbruch beim Unmount ist kein Fehler, den man anzeigen muesste.
         if (cancelled || controller.signal.aborted) return;
         setStatus(hasData.current ? "stale" : "error");
         setMessage(toFriendlyMessage(error));
+        // Bittet der Server um Ruhe, halten wir uns daran - sonst laufen wir
+        // immer tiefer in die Drosselung hinein statt herauszukommen.
+        delay = error instanceof IssApiError && error.retryAfterMs
+          ? error.retryAfterMs
+          : POLL_INTERVAL_MS;
       }
     };
 
     const tick = async () => {
       await load();
       if (cancelled) return;
-      timer = setTimeout(tick, POLL_INTERVAL_MS);
+      timer = setTimeout(tick, delay);
     };
 
     void tick();
